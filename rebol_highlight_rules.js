@@ -1,19 +1,193 @@
 define(
-    function(require, exports, module) {
-        "use strict";
+	function(require, exports, module) {
+		"use strict";
 
-        var Lookup = function(terms) {
-    		this.terms = terms;
+		var Lookup = function(terms) {
+			this.terms = terms;
 			this.lookup = function (term){
-				return terms.indexOf(term) > -1;
+				return this.terms.indexOf(term.toLowerCase()) > -1;
 			}
 		}
 
 		var oop = require("../lib/oop");
 		var TextHighlightRules = require("./text_highlight_rules").TextHighlightRules;
 		var Words = {};
+		var Base = {};
 
-        Words['Datatypes'] = new Lookup([
+		Base.WordFirst = /[A-Za-z=\-\?\!\_\*\+\.]/;
+		Base.WordNext = /[A-Za-z0-9=\-\!\?\_\*\+\.]/;
+		Base.Word = Base.WordFirst.source + Base.WordNext.source + '*';
+		Base.Path = Base.Word + '(?:\\/(?:' + Base.Word + '|\\d+))*';
+		Base.Escape = /\^(?:.|\((?:(?:[0-9a-fA-F]{2}){1,3}|tab|esc)\))/
+
+		var RebolHighlightRules = function() {
+
+			// regexp must not have capturing parentheses. Use (?:) instead.
+			// regexps are ordered -> the first match is used
+			this.$rules = {
+				// RULE ORDER
+
+				// comment
+					// comment-shebang
+					// comment-line
+					// comment-multiline-string
+					// comment-multiline-block
+				// literal
+					// literal-datatype
+					// literal-none
+					// literal-logic
+				// string
+					// character
+					// binary-base-two
+					// binary-base-sixty-four
+					// binary-base-sixteen
+					// string-quoted
+					// string-multiline
+					// string-tag
+					// string-file-quoted
+					// string-file
+					// string-url
+					// string-email
+					// string-issue
+				// value
+					// value-date
+					// value-time
+					// value-tuple
+					// value-number
+					// value-pair
+					// value-money
+				// word
+					// word-set
+					// word-get
+					// word-refine
+					// word
+
+				"start" : [
+					{ // comment-shebang
+						token: 'comment.shebang.rebol',
+						regex: /^#!\/.*reb.*/
+					}, { // comment-line
+						token : 'comment.line.rebol',
+						regex : /;.*?(?=\%>|$)/
+					}, {
+						token : 'paren.lparen',
+						regex : /(?:16)?#\{/,
+						next : "base16",
+						merge: true
+					}, {
+						token : 'email.rebol',
+						regex : /[^\s\n:\/\[\]\(\)]+@[^\s\n:\/\[\]\(\)]*/
+					}, {
+						token : 'file.rebol',
+						regex : '%[^\\s\\n\\[\\]\\(\\)]*'
+					}, {
+						token : 'issue.rebol',
+						regex : /#[^\s\n\[\]\(\)\{\}]*/
+					}, {
+						// string-multiline
+						token : 'string.multiline.rebol',
+						regex : /\{/,
+						next : "string-multiline",
+						merge: true
+					}, {
+						token : 'string.rebol',
+						regex : '"',
+						next : "string-quoted",
+						merge : true
+					}, {
+						token : 'url.rebol',
+						regex : '[A-Za-z][\\w]{1,7}:(?:/{0,3}[^\\s\\n\\[\\]\\(?:\\)]+|//)'
+					}, {
+						// word-get
+						token : 'word.get.rebol',
+						regex : ':' + Base.Path
+					}, {
+						// word-lit
+						token : 'word.lit.rebol',
+						regex : "'" + Base.Path
+					}, {
+						// word-refine
+						token : 'word.refine.rebol',
+						regex : '/[A-Za-z=][A-Za-z0-9=\\-\\!\\?\\_\\*\\.]*'
+					}, {
+						// word-set
+						token : 'word.set.rebol',
+						regex : Base.Path + ':'
+					}, {
+						// word
+						token : function(value) {
+							return value == 'REBOL' ? 'native.header.rebol'
+							: value == 'none' ? 'null.rebol'
+							: Words.Datatypes.lookup(value) ? 'native.datatype.rebol'
+							: Words.Logic.lookup(value) ? 'logic.rebol'
+							: Words.Native.lookup(value) ? 'native.rebol'
+							: Words.QM.lookup(value) ? 'words.rebol.qm'
+							: 'word.rebol';
+						},
+						regex : Base.Path
+					}
+
+				],
+
+				"base16" : [
+					{
+						token: 'paren.rparen',
+						regex : /\}/,
+						next : "start"
+					},{
+						token : 'string.base16.rebol',
+						regex : '[0-9a-fA-F]+',
+						merge: true
+					}
+				],
+
+				"string-multiline" : [
+					{
+						token : "string",
+						regex : /\^./,
+						merge : true
+					}, {
+						token : "string",
+						regex : /[^\}\^]+/,
+						merge : true
+					}, {
+						token : "string",
+						regex : /\}/,
+						next  : "start"
+					}
+				],
+
+				"string-quoted" : [
+					{
+						token : "string.rebol",
+						regex : /[^\"\^]+/,
+						merge : true
+					}, {
+						token : "string.escape.rebol",
+						regex : Base.Escape,
+						merge : true
+					}, {
+						token : "string.rebol",
+						regex : /\"/,
+						next  : "start",
+					}, {
+						token : 'fail',
+						regex : /$/,
+						next : 'fail'
+					}
+				],
+
+				'fail' : [
+					{
+						token : "fail",
+						regex : /.*/
+					}
+				]
+			};
+
+		};
+
+		Words['Datatypes'] = new Lookup([
 			"end!","unset!","error!","datatype!","context!","native!","action!","routine!","op!",
 			"function!","object!","struct!","library!","port!","any-type!","any-word!","any-function!",
 			"number!","series!","any-string!","any-block!","symbol!","word!","set-word!","get-word!",
@@ -86,179 +260,6 @@ define(
 			"qm","render","redirect-to","publish","response","action","route","event","import",
 			"get-param","get-cookie","set-cookie","know"
 		]); 
-
-		var RebolHighlightRules = function() {
-
-			// regexp must not have capturing parentheses. Use (?:) instead.
-			// regexps are ordered -> the first match is used
-			this.$rules = {
-				// RULE ORDER
-
-				// comment
-					// comment-shebang
-					// comment-line
-					// comment-multiline-string
-					// comment-multiline-block
-				// literal
-					// literal-datatype
-					// literal-none
-					// literal-logic
-				// string
-					// character
-					// string-quoted
-					// string-multiline
-					// string-tag
-					// string-file-quoted
-					// string-file
-					// string-url
-					// string-email
-					// binary-base-two
-					// binary-base-sixty-four
-					// binary-base-sixteen
-					// string-issue
-				// value
-					// value-date
-					// value-time
-					// value-tuple
-					// value-number
-					// value-pair
-					// value-money
-				// word
-					// word-datatype
-					// word-set
-					// word-get
-					// word-literal
-					// word-header
-					// word-qm
-					// word-logic
-					// word-refine
-					// word
-
-				"base16" : [
-					{
-						token: 'binary.base16.rebol',
-						regex : /\}/,
-						next : "start"
-					},{
-						token : 'binary.base16.rebol',
-						regex : '[0-9a-fA-F]+',
-						merge: true
-					},{
-						token : 'binary.base16.rebol',
-						regex: /[\s\n]+/,
-						merge: true
-					}
-				],
-
-				"start" : [
-					{
-						token : 'string.base16.rebol',
-						regex : /(?:16)?#\{/,
-						next : "base16",
-						merge: true
-					}, {
-						token : 'comment.line.rebol',
-						regex : /;.*?(?=\%>|$)/
-					}, {
-						token : 'email.rebol',
-						regex : '[^\\s\\n:/\\[\\]\\(\\)]+@[^\\s\\n:/\\[\\]\\(\\)]+'
-					}, {
-						token : 'file.rebol',
-						regex : '%[^\\s\\n\\[\\]\\(\\)]*'
-					}, {
-						token : 'issue.rebol',
-						regex : /#[^\s\n\[\]\(\)\{\}]*/
-					}, {
-						// string-multiline
-						token : 'string.multiline.rebol',
-						regex : /\{/,
-						next : "string-multiline",
-						merge: true
-					}, {
-						token : 'string.rebol',
-						regex : '"',
-						next : "string-quoted",
-						merge : true
-					}, {
-						token : 'url.rebol',
-						regex : '[A-Za-z][\\w]{1,7}:(?:/{0,3}[^\\s\\n\\[\\]\\(?:\\)]+|//)'
-					}, {
-						// word-get
-						token : 'word.get.rebol',
-						regex : ':[A-Za-z=\\-\\?\\!\\_\\*\\+\\.][A-Za-z0-9=\\-\\!\\?\\_\\*\\+\\.]*(?:/(?:[A-Za-z=][A-Za-z0-9=\\-\\!\\?\\_\\*\\+\\.]*|\\d+)*)*'
-					}, {
-						// word-lit
-						token : 'word.lit.rebol',
-						regex : "'[A-Za-z=\\-\\?\\!\\_\\*\\+\\.][A-Za-z0-9=\\-\\!\\?\\_\\*\\+\\.]*(?:/(?:[A-Za-z=][A-Za-z0-9=\\-\\!\\?\\_\\*\\+\\.]*|\\d+))*"
-					}, {
-						// word-refine
-						token : 'word.refine.rebol',
-						regex : '/[A-Za-z=][A-Za-z0-9=\\-\\!\\?\\_\\*\\.]*'
-					}, {
-						// word-set
-						token : 'word.set.rebol',
-						regex : '[A-Za-z=\\-\\?\\!\\_\\*\\+\\.][A-Za-z0-9=\\-\\!\\?\\_\\*\\+\\.]*(?:/(?:[A-Za-z=][A-Za-z0-9=\\-\\!\\?\\_\\*\\.\\+\\.]*|\\d+))*:'
-					}, {
-						// word
-						token : function(value) {
-							return value == 'REBOL' ? 'native.header.rebol'
-							: value == 'none' ? 'null.rebol'
-							: Words['Datatypes'].lookup(value.toLowerCase()) ? 'native.datatype.rebol'
-							: Words['Logic'].lookup(value.toLowerCase()) ? 'logic.rebol'
-							: Words['Native'].lookup(value.toLowerCase()) ? 'native.rebol'
-							: Words['QM'].lookup(value.toLowerCase()) ? 'words.rebol.qm'
-							: 'word.rebol';
-						},
-						regex : /[A-Za-z=][A-Za-z0-9=_\-\!\?\*\+\.]*(?:\/(?:[A-Za-z=][A-Za-z0-9=_\-\!\?\*\+\.]*|\d+))*/
-					}
-
-				],
-
-				"string-multiline" : [
-					{
-						token : "string",
-						regex : /\^./,
-						merge : true
-					}, {
-						token : "string",
-						regex : /[^\}\^]+/,
-						merge : true
-					}, {
-						token : "string",
-						regex : /\}/,
-						next  : "start"
-					}
-				],
-
-				"string-quoted" : [
-					{
-						token : "string.rebol",
-						regex : /[^\"\n\^]+/,
-						merge : true
-					}, {
-						token : "string.escape.rebol",
-						regex : /\^./,
-						merge : true
-					}, {
-						token : "string.rebol",
-						regex : /\"/,
-						next  : "start",
-					}, {
-						token : 'fail',
-						regex : /\n.*/,
-						next : 'fail'
-					}
-				],
-
-				'fail' : [
-					{
-						token : "fail",
-						regex : /.*/
-					}
-				]
-			};
-
-		};
 
 		oop.inherits(RebolHighlightRules, TextHighlightRules);
 
