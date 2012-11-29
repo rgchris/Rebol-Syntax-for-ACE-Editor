@@ -1,5 +1,5 @@
 define(
-	function(require, exports, module) {
+    function(require, exports, module) {
 		"use strict";
 
 		var Lookup = function(terms) {
@@ -18,7 +18,7 @@ define(
 		Base.WordNext = /[A-Za-z0-9=\-\!\?\_\*\+\.]/.source;
 		Base.Word = Base.WordFirst + Base.WordNext + '*';
 		Base.Path = Base.Word + '(?:\\/(?:' + Base.Word + '|\\d+))*';
-		Base.Escape = /\^(?:.|\((?:(?:[0-9a-fA-F]{2}){1,3}|tab|esc)\))/
+		Base.Escape = /\^(?:.|\((?:(?:[0-9a-fA-F]{2}){1,3}|tab|esc)\))/.source;
 
 		var Counter = {};
 		Counter.Nest = 0;
@@ -162,7 +162,7 @@ define(
 						token : function(value) {
 							return value == '/local' ? 'native.rebol' : 'word.refine.rebol';
 						},
-						regex : Base.WordNext + '+'
+						regex : '/' + Base.WordNext
 					},
 					{
 						// word-set
@@ -295,7 +295,6 @@ define(
 					}
 				]
 			};
-
 		};
 
 		Words['Datatypes'] = new Lookup([
@@ -361,16 +360,16 @@ define(
 			"Usage","use","value?","vbug","view","view-install","view-prefs","view?","viewed?",
 			"wait","what","what-dir","while","win-offset?","within?","word?","write","write-io",
 			"write-user","xor","xor~","zero?","/local","thru","end",
-		]); 
+		]);
 
 		Words["Op"] = new Lookup([
 			"+","-","*","**","/","//","=",">",">=","<","<=","<>",
-		]); 
+		]);
 
 		Words["QM"] = new Lookup([
 			"qm","render","redirect-to","publish","response","action","route","event","import",
 			"get-param","get-cookie","set-cookie","know"
-		]); 
+		]);
 
 		oop.inherits(RebolHighlightRules, TextHighlightRules);
 
