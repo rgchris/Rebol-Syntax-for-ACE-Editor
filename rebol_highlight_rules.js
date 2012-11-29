@@ -91,13 +91,13 @@ define(
 						regex: '#\\"(?:' + Base.Escape + '|[^\\^\\"])\\"'
 					},
 					{ // string-base16
-						token: 'paren.lparen',
+						token: 'string.base16.rebol',
 						regex: /(?:16)?#\{/,
 						next: "binary-base16",
 						merge: true
 					},
 					{ // string-base2
-						token: 'paren.lparen',
+						token: 'string.base2.rebol',
 						regex: /(?:2)?#\{/,
 						next: "binary-base2",
 						merge: true
