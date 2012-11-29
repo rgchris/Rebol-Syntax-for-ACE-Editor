@@ -14,106 +14,162 @@ define(
 		var Words = {};
 		var Base = {};
 
-		Base.WordFirst = /[A-Za-z=\-\?\!\_\*\+\.]/;
-		Base.WordNext = /[A-Za-z0-9=\-\!\?\_\*\+\.]/;
-		Base.Word = Base.WordFirst.source + Base.WordNext.source + '*';
+		Base.WordFirst = /[A-Za-z=\-\?\!\_\*\+\.]/.source;
+		Base.WordNext = /[A-Za-z0-9=\-\!\?\_\*\+\.]/.source;
+		Base.Word = Base.WordFirst + Base.WordNext + '*';
 		Base.Path = Base.Word + '(?:\\/(?:' + Base.Word + '|\\d+))*';
 		Base.Escape = /\^(?:.|\((?:(?:[0-9a-fA-F]{2}){1,3}|tab|esc)\))/
+
+		var Counter = {};
+		Counter.Nest = 0;
 
 		var RebolHighlightRules = function() {
 
 			// regexp must not have capturing parentheses. Use (?:) instead.
 			// regexps are ordered -> the first match is used
 			this.$rules = {
-				// RULE ORDER
-
-				// comment
-					// comment-shebang
-					// comment-line
-					// comment-multiline-string
-					// comment-multiline-block
-				// literal
-					// literal-datatype
-					// literal-none
-					// literal-logic
-				// string
-					// character
-					// binary-base-two
-					// binary-base-sixty-four
-					// binary-base-sixteen
-					// string-quoted
-					// string-multiline
-					// string-tag
-					// string-file-quoted
-					// string-file
-					// string-url
-					// string-email
-					// string-issue
-				// value
-					// value-date
-					// value-time
-					// value-tuple
-					// value-number
-					// value-pair
-					// value-money
-				// word
-					// word-set
-					// word-get
-					// word-refine
-					// word
-
 				"start" : [
+
+					// comment
+						// comment-shebang
+						// comment-line
+						// comment-multiline-string
+						// comment-multiline-block
+
 					{ // comment-shebang
 						token: 'comment.shebang.rebol',
 						regex: /^#!\/.*reb.*/
-					}, { // comment-line
+					},
+					{ // comment-line
 						token : 'comment.line.rebol',
 						regex : /;.*?(?=\%>|$)/
-					}, {
-						token : 'paren.lparen',
-						regex : /(?:16)?#\{/,
-						next : "base16",
+					},
+					{ // comment-multiline-string
+						token: 'comment.multiline.rebol',
+						regex: /comment\s+\{/,
+						next: 'comment-multiline-string',
 						merge: true
-					}, {
-						token : 'email.rebol',
-						regex : /[^\s\n:\/\[\]\(\)]+@[^\s\n:\/\[\]\(\)]*/
-					}, {
-						token : 'file.rebol',
-						regex : '%[^\\s\\n\\[\\]\\(\\)]*'
-					}, {
-						token : 'issue.rebol',
-						regex : /#[^\s\n\[\]\(\)\{\}]*/
-					}, {
+					},
+					{ // comment-multiline-block
+						token: 'comment.multiline.rebol',
+						regex: /comment\s+\[/,
+						next: 'comment-multiline-block',
+						merge: true
+					},
+
+					// literal
+						// literal-datatype
+						// literal-none
+						// literal-logic
+
+					// NEED: literal-datatype
+					{ // literal-none
+						token: 'none.rebol',
+						regex: /#\[none\]/
+					},
+					{ // literal-logic
+						token: 'logic.rebol',
+						regex: /#\[(?:true|false)\]/
+					},
+
+					// string
+						// character
+						// binary-base16
+						// binary-base2
+						// binary-base64
+						// string-quoted
 						// string-multiline
+						// string-tag
+						// string-file-quoted
+						// string-file
+						// string-url
+						// string-email
+						// string-issue
+
+					{ // character
+						token: 'character.rebol',
+						regex: '#\\"(?:' + Base.Escape + '|[^\\^\\"])\\"'
+					},
+					{ // string-base16
+						token: 'paren.lparen',
+						regex: /(?:16)?#\{/,
+						next: "binary-base16",
+						merge: true
+					},
+					{ // string-base2
+						token: 'paren.lparen',
+						regex: /(?:2)?#\{/,
+						next: "binary-base2",
+						merge: true
+					},
+					{ // string-quoted
+						token : 'string.quoted.rebol',
+						regex : '"',
+						next : "string-quoted",
+						merge : true
+					},
+					{ // string-multiline
 						token : 'string.multiline.rebol',
 						regex : /\{/,
 						next : "string-multiline",
 						merge: true
-					}, {
-						token : 'string.rebol',
-						regex : '"',
-						next : "string-quoted",
-						merge : true
-					}, {
+					},
+					// NEED: string-tag
+					// NEED: string-file-quoted
+					{ // string-file
+						token : 'file.rebol',
+						regex : '%[^\\s\\n\\[\\]\\(\\)]*'
+					},
+					{ // string-url
 						token : 'url.rebol',
 						regex : '[A-Za-z][\\w]{1,7}:(?:/{0,3}[^\\s\\n\\[\\]\\(?:\\)]+|//)'
-					}, {
+					},
+					{ // string-email
+						token : 'email.rebol',
+						regex : /[^\s\n:\/\[\]\(\)]+@[^\s\n:\/\[\]\(\)]*/
+					},
+					{ // string-issue
+						token : 'issue.rebol',
+						regex : /#[^\s\n\[\]\(\)\{\}]*/
+					},
+
+					// value
+						// value-date
+						// value-time
+						// value-tuple
+						// value-number
+						// value-pair
+						// value-money
+
+					// word
+						// word-set
+						// word-get
+						// word-refine
+						// word
+
+					{
 						// word-get
 						token : 'word.get.rebol',
 						regex : ':' + Base.Path
-					}, {
+					},
+					{
 						// word-lit
 						token : 'word.lit.rebol',
 						regex : "'" + Base.Path
-					}, {
+					},
+					{
 						// word-refine
-						token : 'word.refine.rebol',
-						regex : '/[A-Za-z=][A-Za-z0-9=\\-\\!\\?\\_\\*\\.]*'
-					}, {
+						token : function(value) {
+							return value == '/local' ? 'native.rebol' : 'word.refine.rebol';
+						},
+						regex : Base.WordNext + '+'
+					},
+					{
 						// word-set
 						token : 'word.set.rebol',
 						regex : Base.Path + ':'
-					}, {
+					},
+					{
 						// word
 						token : function(value) {
 							return value == 'REBOL' ? 'native.header.rebol'
@@ -126,34 +182,89 @@ define(
 						},
 						regex : Base.Path
 					}
-
 				],
 
-				"base16" : [
+				"comment-multiline-string" : [
 					{
-						token: 'paren.rparen',
-						regex : /\}/,
-						next : "start"
-					},{
-						token : 'string.base16.rebol',
-						regex : '[0-9a-fA-F]+',
+						token: 'comment.multiline.string.rebol',
+						regex: /\}/,
+						next: "start"
+						// next: function() {
+						//	Counter.Nest--;
+						//	return (Counter.Nest === 0) ? 'start' : null;
+						// }
+					},
+					// {
+					//	token: 'comment.multiline.string.rebol',
+					//	regex: /\{/,
+					//	next: function() {
+					//		Counter.Nest++;
+					//		return null;
+					//	}
+					// },
+					{
+						token: 'comment.multiline.string.rebol',
+						regex: Base.Escape,
+						merge: true
+					},
+					{
+						token: 'comment.multiline.string.rebol',
+						regex: /[^\{\}\^]+/,
+						merge: true
+					}
+					
+				],
+
+				"comment-multiline-block" : [
+					{
+						token: 'comment.multiline.block.rebol',
+						regex: /\]/,
+						next: 'start'
+					}, {
+						token: 'comment.multiline.block.rebol',
+						regex: /[^\]\^]+/,
+						merge: true
+					}
+					
+				],
+
+				"binary-base16" : [
+					{
+						token: 'string.base16.rebol',
+						regex: /\}/,
+						next: "start"
+					}, {
+						token: 'string.base16.rebol',
+						regex: '[0-9a-fA-F]+',
+						merge: true
+					}
+				],
+
+				"binary-base2" : [
+					{
+						token: 'string.base2.rebol',
+						regex: /\}/,
+						next: "start"
+					}, {
+						token: 'string.base2.rebol',
+						regex: '[01]+',
 						merge: true
 					}
 				],
 
 				"string-multiline" : [
 					{
-						token : "string",
-						regex : /\^./,
-						merge : true
+						token: "string.multiline.rebol",
+						regex: Base.Escape,
+						merge: true
 					}, {
-						token : "string",
-						regex : /[^\}\^]+/,
-						merge : true
+						token: "string.multiline.rebol",
+						regex: /[^\}\^]+/,
+						merge: true
 					}, {
-						token : "string",
-						regex : /\}/,
-						next  : "start"
+						token: "string",
+						regex: /\}/,
+						next: "start"
 					}
 				],
 
